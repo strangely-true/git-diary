@@ -1,142 +1,256 @@
 const vscode = require("vscode");
 const axios = require("axios");
 const path = require("path");
+const { debounce } = require("lodash");
 
 // Global variables
 let commitInterval = null;
 let statusBarItem = null;
 const DEFAULT_INTERVAL = 30; // minutes
 const REPO_NAME = "git-diary-entries";
+let intervalChangeLog = {};
+let extensionContext = null;
+
+// Configuration
+const config = {
+  debounceTime: 1500, // 1.5 seconds to group typing events
+  maxSnippetLength: 300,
+  ignoredPatterns: [REPO_NAME, /\.git\//, /node_modules\//],
+};
 
 /**
  * Core functionality
  */
 async function authenticate(context) {
-  try {
-    const session = await vscode.authentication.getSession("github", ["repo"], {
-      createIfNone: true,
-    });
-    await context.secrets.store("githubAccessToken", session.accessToken);
-    return session.accessToken;
-  } catch (error) {
-    vscode.window.showErrorMessage("Authentication failed: " + error.message);
-    throw error;
-  }
+  const session = await vscode.authentication.getSession("github", ["repo"], {
+    createIfNone: true,
+  });
+  await context.secrets.store("githubAccessToken", session.accessToken);
+  return session.accessToken;
 }
 
 async function getGitHubUsername(token) {
-  try {
-    const response = await axios.get("https://api.github.com/user", {
-      headers: { Authorization: `token ${token}` },
-    });
-    return response.data.login;
-  } catch (error) {
-    vscode.window.showErrorMessage(
-      "Failed to fetch GitHub user: " + error.message
-    );
-    throw error;
-  }
+  const response = await axios.get("https://api.github.com/user", {
+    headers: { Authorization: `token ${token}` },
+  });
+  return response.data.login;
 }
 
 async function createGitHubRepo(token) {
   try {
     await axios.post(
       "https://api.github.com/user/repos",
-      {
-        name: REPO_NAME,
-        private: true,
-        auto_init: true,
-      },
-      {
-        headers: { Authorization: `token ${token}` },
-      }
+      { name: REPO_NAME, private: true, auto_init: true },
+      { headers: { Authorization: `token ${token}` } }
     );
   } catch (error) {
-    if (error.response.status === 422) {
-      return; // Repo already exists
-    }
-    vscode.window.showErrorMessage("Repo creation failed: " + error.message);
-    throw error;
+    if (error.response.status !== 422) throw error;
   }
 }
 
 async function updateDiaryEntry(token, username, content) {
+  const date = new Date();
+  const [dateString, timeString] = [
+    date.toISOString().split("T")[0],
+    date.toLocaleTimeString("en-US", { hour12: false }),
+  ];
+
+  const filePath = `${date.getFullYear()}/${String(
+    date.getMonth() + 1
+  ).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}.md`;
+  const url = `https://api.github.com/repos/${username}/${REPO_NAME}/contents/${filePath}`;
+
+  let sha = null;
   try {
-    const date = new Date();
-    const dateString = date.toISOString().split("T")[0];
-    const timeString = date.toLocaleTimeString();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0"); // Months are 0-based
-    const day = String(date.getDate()).padStart(2, "0");
+    const response = await axios.get(url, {
+      headers: { Authorization: `token ${token}` },
+    });
+    sha = response.data.sha;
+  } catch (error) {
+    if (error.response.status !== 404) throw error;
+  }
 
-    const filePath = `${year}/${month}/${day}.md`;
+  const existingContent = sha
+    ? Buffer.from(
+        (await axios.get(url, { headers: { Authorization: `token ${token}` } }))
+          .data.content,
+        "base64"
+      ).toString()
+    : "";
 
-    // Get existing content
-    const url = `https://api.github.com/repos/${username}/${REPO_NAME}/contents/${filePath}`;
-    let sha = null;
+  await axios.put(
+    url,
+    {
+      message: `Diary update: ${dateString} ${timeString}`,
+      content: Buffer.from(
+        `${existingContent}## ${timeString}\n${content}\n\n`
+      ).toString("base64"),
+      sha: sha,
+    },
+    { headers: { Authorization: `token ${token}` } }
+  );
+}
 
-    try {
-      const response = await axios.get(url, {
-        headers: { Authorization: `token ${token}` },
-      });
-      sha = response.data.sha;
-    } catch (error) {
-      if (error.response.status !== 404) throw error;
-    }
+/**
+ * Optimized Activity Tracking
+ */
+function shouldIgnorePath(filePath) {
+  return config.ignoredPatterns.some((pattern) =>
+    typeof pattern === "string"
+      ? filePath.includes(pattern)
+      : pattern.test(filePath)
+  );
+}
 
-    // Prepare new content
-    const newContent = `## ${timeString}\n${content}\n\n`;
-    let existingContent = "";
-    if (sha) {
-      const response = await axios.get(url, {
-        headers: { Authorization: `token ${token}` },
-      });
-      existingContent = Buffer.from(response.data.content, "base64").toString();
-    }
-    const encodedContent = Buffer.from(existingContent + newContent).toString(
-      "base64"
-    );
+const trackedDocuments = new Map();
 
-    // Update file
-    await axios.put(
-      url,
-      {
-        message: `Diary update: ${dateString} ${timeString}`,
-        content: encodedContent,
-        sha: sha,
-      },
-      {
-        headers: { Authorization: `token ${token}` },
+function trackDocumentChanges(document) {
+  if (shouldIgnorePath(document.uri.fsPath) || trackedDocuments.has(document))
+    return;
+
+  const debouncedChanges = debounce(async () => {
+    const filePath = document.uri.fsPath;
+    const currentContent = document.getText();
+    const previousContent = trackedDocuments.get(document) || "";
+
+    if (currentContent === previousContent) return;
+
+    const changes = [];
+    const currentLines = currentContent.split("\n");
+    const previousLines = previousContent.split("\n");
+
+    // Compare line by line to find meaningful changes
+    for (
+      let i = 0;
+      i < Math.max(currentLines.length, previousLines.length);
+      i++
+    ) {
+      const currentLine = currentLines[i] || "";
+      const previousLine = previousLines[i] || "";
+
+      if (currentLine !== previousLine) {
+        const snippet = currentLine.slice(0, config.maxSnippetLength);
+        changes.push({
+          type: "code_change",
+          snippet:
+            snippet +
+            (currentLine.length > config.maxSnippetLength ? "..." : ""),
+          lines: i + 1,
+          timestamp: new Date(),
+        });
       }
+    }
+
+    if (changes.length > 0) {
+      intervalChangeLog[filePath] = [
+        ...(intervalChangeLog[filePath] || []),
+        ...changes,
+      ];
+    }
+
+    trackedDocuments.set(document, currentContent);
+  }, config.debounceTime);
+
+  trackedDocuments.set(document, document.getText());
+  return vscode.workspace.onDidChangeTextDocument((e) => {
+    if (e.document === document) debouncedChanges();
+  });
+}
+
+function trackAllChanges() {
+  return {
+    trackFileOperations(event, operation) {
+      event.files.forEach((uri) => {
+        const filePath = uri.fsPath;
+        if (shouldIgnorePath(filePath)) return;
+
+        intervalChangeLog[filePath] = [
+          ...(intervalChangeLog[filePath] || []),
+          {
+            type: "file_operation",
+            operation: operation,
+            timestamp: new Date(),
+          },
+        ];
+      });
+    },
+
+    trackFileRename(event) {
+      event.files.forEach(({ oldUri, newUri }) => {
+        const oldPath = oldUri.fsPath;
+        const newPath = newUri.fsPath;
+
+        if (!shouldIgnorePath(oldPath)) {
+          intervalChangeLog[oldPath] = [
+            ...(intervalChangeLog[oldPath] || []),
+            {
+              type: "file_operation",
+              operation: `renamed to ${path.basename(newPath)}`,
+              timestamp: new Date(),
+            },
+          ];
+        }
+
+        if (!shouldIgnorePath(newPath)) {
+          intervalChangeLog[newPath] = [
+            ...(intervalChangeLog[newPath] || []),
+            {
+              type: "file_operation",
+              operation: `renamed from ${path.basename(oldPath)}`,
+              timestamp: new Date(),
+            },
+          ];
+        }
+      });
+    },
+  };
+}
+
+function generateActivityContent() {
+  if (Object.keys(intervalChangeLog).length === 0) return null;
+
+  const now = new Date();
+  let content = `## ${now.toLocaleDateString()} ${now.toLocaleTimeString()}\n\n`;
+
+  Object.entries(intervalChangeLog).forEach(([filePath, changes]) => {
+    const fileName = path.basename(filePath);
+    const fileDir = path.relative(
+      vscode.workspace.rootPath,
+      path.dirname(filePath)
     );
-  } catch (error) {
-    vscode.window.showErrorMessage("Commit failed: " + error.message);
-    throw error;
-  }
+
+    content += `### ${fileName}\n*${fileDir || "workspace root"}*\n`;
+
+    changes.forEach((change) => {
+      const time = change.timestamp.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+
+      content += `- **${time}**: ${
+        change.type === "code_change"
+          ? `Modified line ${change.lines}:\n  \`${change.snippet}\``
+          : change.operation
+      }\n`;
+    });
+
+    content += "\n";
+  });
+
+  intervalChangeLog = {};
+  return content;
 }
 
 /**
- * Activity tracking
+ * Optimized UI & Core Lifecycle
  */
-let changeLog = {}; // Store changes per file
-
-function trackChanges(event) {}
-
-async function generateActivityContent() {}
-
-async function logActivity(token, username) { //Just gets the message from the generateContent function and pushes to github
-  try {
-    const content = await generateActivityContent();
-    await updateDiaryEntry(token, username, content);
-  } catch (error) {
-    console.error("Activity logging error:", error);
-  }
+async function logActivity(token, username) {
+  const content = generateActivityContent();
+  if (content) await updateDiaryEntry(token, username, content);
 }
 
-/**
- * UI Elements
- */
-function createStatusBarItem(context) {
+function createStatusBarItem() {
   statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
     100
@@ -145,83 +259,70 @@ function createStatusBarItem(context) {
   statusBarItem.tooltip = "Click to change commit interval";
   statusBarItem.command = "git-diary.changeInterval";
   statusBarItem.show();
-
-  context.subscriptions.push(statusBarItem);
+  return statusBarItem;
 }
 
-async function changeCommitInterval(context) {
-  const interval = await vscode.window.showInputBox({
-    prompt: "Enter commit interval in minutes",
-    value: context.globalState
-      .get("commitInterval", DEFAULT_INTERVAL)
-      .toString(),
-  });
-
-  if (interval) {
-    const minutes = Math.max(1, parseInt(interval)) || DEFAULT_INTERVAL;
-    context.globalState.update("commitInterval", minutes);
-    setupCommitInterval(context, minutes * 60 * 1000);
-    vscode.window.showInformationMessage(
-      `Commit interval set to ${minutes} minutes`
-    );
-  }
-}
-
-/**
- * Core lifecycle
- */
-//just calls logActivity every 30 minutes
 async function setupCommitInterval(context, intervalMs) {
   if (commitInterval) clearInterval(commitInterval);
-  const { token, username } = await setupGitHubRepo(context);
 
-  commitInterval = setInterval(() => {
-    logActivity(token,username);
-  }, intervalMs);
+  const { token, username } = await (async () => {
+    const token = await authenticate(context);
+    return {
+      token,
+      username: await getGitHubUsername(token),
+      repo: await createGitHubRepo(token),
+    };
+  })();
 
-  context.subscriptions.push({
-    dispose: () => {
-      if (commitInterval) clearInterval(commitInterval);
-    },
-  });
-}
-
-async function setupGitHubRepo(context) {
-  let gitInfo = {};
-  gitInfo.token = await authenticate(context);
-  gitInfo.username = await getGitHubUsername(gitInfo.token);
-  await createGitHubRepo(gitInfo.token);
-  return gitInfo;
+  commitInterval = setInterval(() => logActivity(token, username), intervalMs);
+  context.subscriptions.push({ dispose: () => clearInterval(commitInterval) });
 }
 
 function activate(context) {
-  // Initialize commit interval
-  const initialInterval = context.globalState.get("commitInterval", DEFAULT_INTERVAL) * 60 * 1000;
-  setupCommitInterval(context, initialInterval);
+  extensionContext = context;
+  const tracker = trackAllChanges();
 
-  // Register commands
+  // Document tracking
   context.subscriptions.push(
-	vscode.commands.registerCommand("git-diary.logActivity", async () => {
-	  const token = await context.secrets.get("githubAccessToken");
-	  const username = await getGitHubUsername(token);
-	  logActivity(token, username);
-	}),
-    vscode.commands.registerCommand("git-diary.changeInterval", () =>
-      changeCommitInterval(context)
-    )
+    ...vscode.workspace.textDocuments.map((doc) => trackDocumentChanges(doc)),
+    vscode.workspace.onDidOpenTextDocument((doc) => trackDocumentChanges(doc)),
+    vscode.workspace.onDidChangeTextDocument(() => {}), // Handled by trackDocumentChanges
+    vscode.workspace.onDidCreateFiles((e) =>
+      tracker.trackFileOperations(e, "Created")
+    ),
+    vscode.workspace.onDidDeleteFiles((e) =>
+      tracker.trackFileOperations(e, "Deleted")
+    ),
+    vscode.workspace.onDidRenameFiles(tracker.trackFileRename),
+    createStatusBarItem(),
+    vscode.commands.registerCommand("git-diary.changeInterval", () => {
+      vscode.window
+        .showInputBox({
+          prompt: "Commit interval (minutes)",
+          value: context.globalState.get("commitInterval", DEFAULT_INTERVAL),
+        })
+        .then((interval) => {
+          const minutes = Math.max(1, parseInt(interval) || DEFAULT_INTERVAL);
+          context.globalState.update("commitInterval", minutes);
+          setupCommitInterval(context, minutes * 60000);
+        });
+    })
   );
 
-  // Create UI elements
-  createStatusBarItem(context);
-
-  console.log("Git Diary extension activated");
+  setupCommitInterval(
+    context,
+    context.globalState.get("commitInterval", DEFAULT_INTERVAL) * 60000
+  );
 }
 
 async function deactivate() {
-	const token = await context.secrets.get("githubAccessToken");
-	const username = await getGitHubUsername(token);
-	await logActivity(token, username);
-	if (commitInterval) clearInterval(commitInterval);
+  if (commitInterval) clearInterval(commitInterval);
+  try {
+    const token = await extensionContext.secrets.get("githubAccessToken");
+    await logActivity(token, await getGitHubUsername(token));
+  } catch (error) {
+    console.error("Final commit failed:", error);
   }
+}
 
 module.exports = { activate, deactivate };
