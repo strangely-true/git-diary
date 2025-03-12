@@ -3,7 +3,7 @@
   "displayName": "Git Diary",
   "description": "Automatically tracks code changes and commits them to a private GitHub diary repository",
   "version": "0.1.0",
-  "publisher": "YourName",
+  "publisher": "strangely-true",
   "engines": {
     "vscode": "^1.97.0"
   },
@@ -55,7 +55,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/git-diary-extension"
+    "url": "https://github.com/strangely-true/git-diary"
   },
   "icon": "images/icon.png",
   "keywords": [

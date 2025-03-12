@@ -51,44 +51,33 @@ async function createGitHubRepo(token) {
 async function updateDiaryEntry(token, username, content) {
   const date = new Date();
   const [dateString, timeString] = [
-    date.toISOString().split("T")[0],
-    date.toLocaleTimeString("en-US", { hour12: false }),
+    date.toISOString().split('T')[0],
+    date.toLocaleTimeString('en-US', { hour12: false }),
   ];
-
-  const filePath = `${date.getFullYear()}/${String(
-    date.getMonth() + 1
-  ).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}.md`;
+  
+  const filePath = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}.md`;
   const url = `https://api.github.com/repos/${username}/${REPO_NAME}/contents/${filePath}`;
 
-  let sha = null;
+  let sha, existingContent = '';
   try {
-    const response = await axios.get(url, {
-      headers: { Authorization: `token ${token}` },
-    });
-    sha = response.data.sha;
+    const { data } = await axios.get(url, { headers: { Authorization: `token ${token}` } });
+    sha = data.sha;
+    existingContent = Buffer.from(data.content, 'base64').toString();
   } catch (error) {
-    if (error.response.status !== 404) throw error;
+    if (error.response?.status !== 404) throw error;
   }
 
-  const existingContent = sha
-    ? Buffer.from(
-        (await axios.get(url, { headers: { Authorization: `token ${token}` } }))
-          .data.content,
-        "base64"
-      ).toString()
-    : "";
+  const commitMessage = vscode.workspace.getConfiguration('gitDiary')
+    .get('commitMessage', `Diary update: ${dateString} ${timeString}`);
+  
+  const entrySeparator = existingContent ? '\n\n' : '';
+  const newContent = `${existingContent}${entrySeparator}## ${timeString}\n${content}`;
 
-  await axios.put(
-    url,
-    {
-      message: `Diary update: ${dateString} ${timeString}`,
-      content: Buffer.from(
-        `${existingContent}## ${timeString}\n${content}\n\n`
-      ).toString("base64"),
-      sha: sha,
-    },
-    { headers: { Authorization: `token ${token}` } }
-  );
+  await axios.put(url, {
+    message: commitMessage,
+    content: Buffer.from(newContent).toString('base64'),
+    sha: sha || undefined, // Undefined instead of null for new files
+  }, { headers: { Authorization: `token ${token}` } });
 }
 
 /**
