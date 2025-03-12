@@ -5,7 +5,6 @@ const { debounce } = require("lodash");
 
 // Global variables
 let commitInterval = null;
-let statusBarItem = null;
 const DEFAULT_INTERVAL = 30; // minutes
 const REPO_NAME = "git-diary-entries";
 let intervalChangeLog = {};
