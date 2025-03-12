@@ -11,11 +11,12 @@ const REPO_NAME = "git-diary-entries";
 let intervalChangeLog = {};
 let extensionContext = null;
 
+const ignoreFilepath = ["/node_modules/", /\.env$/, "/dist/", /\.log$/];
+
 // Configuration
 const config = {
   debounceTime: 1500, // 1.5 seconds to group typing events
   maxSnippetLength: 300,
-  ignoredPatterns: [REPO_NAME, /\.git\//, /node_modules\//],
 };
 
 /**
@@ -51,40 +52,56 @@ async function createGitHubRepo(token) {
 async function updateDiaryEntry(token, username, content) {
   const date = new Date();
   const [dateString, timeString] = [
-    date.toISOString().split('T')[0],
-    date.toLocaleTimeString('en-US', { hour12: false }),
+    date.toISOString().split("T")[0],
+    date.toLocaleTimeString("en-US", { hour12: false }),
   ];
-  
-  const filePath = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}.md`;
+
+  const filePath = `${date.getFullYear()}/${String(
+    date.getMonth() + 1
+  ).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}.md`;
   const url = `https://api.github.com/repos/${username}/${REPO_NAME}/contents/${filePath}`;
 
-  let sha, existingContent = '';
+  let sha,
+    existingContent = "";
   try {
-    const { data } = await axios.get(url, { headers: { Authorization: `token ${token}` } });
+    const { data } = await axios.get(url, {
+      headers: { Authorization: `token ${token}` },
+    });
     sha = data.sha;
-    existingContent = Buffer.from(data.content, 'base64').toString();
+    existingContent = Buffer.from(data.content, "base64").toString();
   } catch (error) {
     if (error.response?.status !== 404) throw error;
   }
 
-  const commitMessage = vscode.workspace.getConfiguration('gitDiary')
-    .get('commitMessage', `Diary update: ${dateString} ${timeString}`);
-  
-  const entrySeparator = existingContent ? '\n\n' : '';
+  const commitMessage = vscode.workspace
+    .getConfiguration("gitDiary")
+    .get("commitMessage", `Diary update: ${dateString} ${timeString}`);
+
+  const entrySeparator = existingContent ? "\n\n" : "";
   const newContent = `${existingContent}${entrySeparator}## ${timeString}\n${content}`;
 
-  await axios.put(url, {
-    message: commitMessage,
-    content: Buffer.from(newContent).toString('base64'),
-    sha: sha || undefined, // Undefined instead of null for new files
-  }, { headers: { Authorization: `token ${token}` } });
+  await axios.put(
+    url,
+    {
+      message: commitMessage,
+      content: Buffer.from(newContent).toString("base64"),
+      sha: sha || undefined,
+    },
+    { headers: { Authorization: `token ${token}` } }
+  );
 }
 
 /**
  * Optimized Activity Tracking
  */
 function shouldIgnorePath(filePath) {
-  return config.ignoredPatterns.some((pattern) =>
+  const config = vscode.workspace.getConfiguration("gitDiary");
+  const ignoredPatterns = [
+    ...ignoreFilepath, // Predefined patterns
+    ...config.get("ignoredPaths", []), // User-configured patterns
+  ];
+
+  return ignoredPatterns.some((pattern) =>
     typeof pattern === "string"
       ? filePath.includes(pattern)
       : pattern.test(filePath)
@@ -270,7 +287,7 @@ async function setupCommitInterval(context, intervalMs) {
 function activate(context) {
   extensionContext = context;
   const tracker = trackAllChanges();
-
+  
   // Document tracking
   context.subscriptions.push(
     ...vscode.workspace.textDocuments.map((doc) => trackDocumentChanges(doc)),
@@ -283,7 +300,7 @@ function activate(context) {
       tracker.trackFileOperations(e, "Deleted")
     ),
     vscode.workspace.onDidRenameFiles(tracker.trackFileRename),
-    createStatusBarItem(),
+    createStatusBarItem(context),
     vscode.commands.registerCommand("git-diary.changeInterval", () => {
       vscode.window
         .showInputBox({
