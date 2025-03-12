@@ -1,28 +1,45 @@
 {
   "name": "git-diary",
-  "displayName": "git-diary",
-  "description": "",
-  "version": "0.0.1",
+  "displayName": "Git Diary",
+  "description": "Automatically tracks code changes and commits them to a private GitHub diary repository",
+  "version": "0.1.0",
+  "publisher": "YourName",
   "engines": {
     "vscode": "^1.97.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "SCM Providers"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "git-diary.logActivity",
-        "title": "Git Diary: Log Activity"
+        "command": "git-diary.changeInterval",
+        "title": "Git Diary: Change Commit Interval",
+        "category": "Git Diary"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Git Diary",
+      "properties": {
+        "git-diary.commitInterval": {
+          "type": "number",
+          "default": 30,
+          "minimum": 1,
+          "description": "Automatic commit interval in minutes"
+        }
+      }
+    }
   },
   "scripts": {
     "lint": "eslint .",
     "pretest": "npm run lint",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
@@ -34,7 +51,18 @@
   },
   "dependencies": {
     "axios": "^1.8.1",
-    "iodash": "^0.0.1-security",
     "lodash": "^4.17.21"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/git-diary-extension"
+  },
+  "icon": "images/icon.png",
+  "keywords": [
+    "git",
+    "diary",
+    "productivity",
+    "time-tracking",
+    "automation"
+  ]
 }
