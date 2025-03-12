@@ -23,11 +23,16 @@ const config = {
  * Core functionality
  */
 async function authenticate(context) {
-  const session = await vscode.authentication.getSession("github", ["repo"], {
-    createIfNone: true,
-  });
-  await context.secrets.store("githubAccessToken", session.accessToken);
-  return session.accessToken;
+  try {
+    const session = await vscode.authentication.getSession("github", ["repo"], {
+      createIfNone: true,
+    });
+    await context.secrets.store("githubAccessToken", session.accessToken);
+    return session.accessToken;
+  } catch (error) {
+    vscode.window.showErrorMessage("GitHub authentication failed");
+    throw error;
+  }
 }
 
 async function getGitHubUsername(token) {
@@ -111,8 +116,8 @@ function shouldIgnorePath(filePath) {
 const trackedDocuments = new Map();
 
 function trackDocumentChanges(document) {
-  if (shouldIgnorePath(document.uri.fsPath) || trackedDocuments.has(document))
-    return;
+  if (shouldIgnorePath(document.uri.fsPath)) return null;
+  if (trackedDocuments.has(document)) return null;
 
   const debouncedChanges = debounce(async () => {
     const filePath = document.uri.fsPath;
@@ -125,7 +130,6 @@ function trackDocumentChanges(document) {
     const currentLines = currentContent.split("\n");
     const previousLines = previousContent.split("\n");
 
-    // Compare line by line to find meaningful changes
     for (
       let i = 0;
       i < Math.max(currentLines.length, previousLines.length);
@@ -256,72 +260,160 @@ async function logActivity(token, username) {
   if (content) await updateDiaryEntry(token, username, content);
 }
 
-function createStatusBarItem() {
-  statusBarItem = vscode.window.createStatusBarItem(
+function createStatusBarItem(context) {
+  const statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Right,
     100
   );
+
   statusBarItem.text = "$(git-commit) Git Diary";
-  statusBarItem.tooltip = "Click to change commit interval";
-  statusBarItem.command = "git-diary.changeInterval";
+  statusBarItem.tooltip = "Click to configure diary settings";
+  statusBarItem.command = "git-diary.showSettings";
   statusBarItem.show();
+
+  // Register the command properly
+  const settingsCommand = vscode.commands.registerCommand(
+    "git-diary.showSettings",
+    handleSettingsCommand(context) // Directly pass the returned function
+  );
+
+  context.subscriptions.push(statusBarItem, settingsCommand);
+
   return statusBarItem;
+}
+
+function handleSettingsCommand(context) {
+  return async () => {
+    const choice = await vscode.window.showQuickPick([
+      "🕒 Change Commit Interval",
+      "📝 Set Message Format",
+      "🚫 Manage Ignored Paths",
+      "⚙️ Open Full Settings"
+    ]);
+
+    if (!choice) return;
+
+    try {
+      switch (choice) {
+        case "🕒 Change Commit Interval":
+          await handleIntervalChange(context);
+          break;
+        
+        case "📝 Set Message Format":
+          await handleMessageFormatChange();
+          break;
+        
+        case "🚫 Manage Ignored Paths":
+          await handleIgnoredPaths();
+          break;
+        
+        case "⚙️ Open Full Settings":
+          await vscode.commands.executeCommand('workbench.action.openSettings', 'gitDiary');
+          break;
+      }
+    } catch (error) {
+      vscode.window.showErrorMessage(`Settings update failed: ${error.message}`);
+    }
+  };
+}
+
+async function handleIntervalChange(context) {
+  const current = context.globalState.get("commitInterval", DEFAULT_INTERVAL);
+  const interval = await vscode.window.showInputBox({
+    prompt: "Commit interval (minutes)",
+    value: current.toString(),
+    validateInput: value => 
+      isNaN(value) || value < 1 ? "Must be a number ≥ 1" : null
+  });
+
+  if (interval) {
+    const minutes = Math.max(1, parseInt(interval));
+    context.globalState.update("commitInterval", minutes);
+    setupCommitInterval(context, minutes * 60000);
+    vscode.window.showInformationMessage(`Commit interval set to ${minutes} minutes`);
+  }
+}
+
+async function handleMessageFormatChange() {
+  const config = vscode.workspace.getConfiguration("gitDiary");
+  const current = config.get("commitMessage", `Diary update: \${date}`);
+  
+  const message = await vscode.window.showInputBox({
+    prompt: "Enter message format (use ${date} for timestamp)",
+    value: current
+  });
+
+  if (message) {
+    await config.update("commitMessage", message, vscode.ConfigurationTarget.Global);
+    vscode.window.showInformationMessage("Commit message format updated");
+  }
+}
+
+async function handleIgnoredPaths() {
+  const config = vscode.workspace.getConfiguration("gitDiary");
+  const current = config.get("ignoredPaths", []).join(', ');
+  
+  const paths = await vscode.window.showInputBox({
+    prompt: "Comma-separated list of paths/patterns to ignore",
+    value: current
+  });
+
+  if (paths) {
+    const cleanedPaths = paths.split(',')
+      .map(p => p.trim())
+      .filter(p => p.length > 0);
+    
+    await config.update("ignoredPaths", cleanedPaths, vscode.ConfigurationTarget.Global);
+    vscode.window.showInformationMessage(`Ignored paths updated (${cleanedPaths.length} patterns)`);
+  }
 }
 
 async function setupCommitInterval(context, intervalMs) {
   if (commitInterval) clearInterval(commitInterval);
 
-  const { token, username } = await (async () => {
+  try {
     const token = await authenticate(context);
-    return {
-      token,
-      username: await getGitHubUsername(token),
-      repo: await createGitHubRepo(token),
-    };
-  })();
+    const username = await getGitHubUsername(token);
+    await createGitHubRepo(token);
 
-  commitInterval = setInterval(() => logActivity(token, username), intervalMs);
-  context.subscriptions.push({ dispose: () => clearInterval(commitInterval) });
+    commitInterval = setInterval(() => logActivity(token, username), intervalMs);
+    
+    context.subscriptions.push({
+      dispose: () => {
+        clearInterval(commitInterval);
+        commitInterval = null;
+      }
+    });
+  } catch (error) {
+    vscode.window.showErrorMessage(`Failed to initialize diary: ${error.message}`);
+  }
 }
 
 function activate(context) {
   extensionContext = context;
   const tracker = trackAllChanges();
-  
-  // Document tracking
+
   context.subscriptions.push(
-    ...vscode.workspace.textDocuments.map((doc) => trackDocumentChanges(doc)),
+    ...vscode.workspace.textDocuments
+      .map((doc) => trackDocumentChanges(doc))
+      .filter(Boolean), // Remove null/undefined
     vscode.workspace.onDidOpenTextDocument((doc) => trackDocumentChanges(doc)),
-    vscode.workspace.onDidChangeTextDocument(() => {}), // Handled by trackDocumentChanges
-    vscode.workspace.onDidCreateFiles((e) =>
-      tracker.trackFileOperations(e, "Created")
-    ),
-    vscode.workspace.onDidDeleteFiles((e) =>
-      tracker.trackFileOperations(e, "Deleted")
-    ),
-    vscode.workspace.onDidRenameFiles(tracker.trackFileRename),
-    createStatusBarItem(context),
-    vscode.commands.registerCommand("git-diary.changeInterval", () => {
-      vscode.window
-        .showInputBox({
-          prompt: "Commit interval (minutes)",
-          value: context.globalState.get("commitInterval", DEFAULT_INTERVAL),
-        })
-        .then((interval) => {
-          const minutes = Math.max(1, parseInt(interval) || DEFAULT_INTERVAL);
-          context.globalState.update("commitInterval", minutes);
-          setupCommitInterval(context, minutes * 60000);
-        });
-    })
+    vscode.workspace.onDidCreateFiles((e) => tracker.trackFileOperations(e, "Created")),
+    vscode.workspace.onDidDeleteFiles((e) => tracker.trackFileOperations(e, "Deleted")),
+    vscode.workspace.onDidRenameFiles((e) => tracker.trackFileRename(e)), // Proper binding
+    createStatusBarItem(context) // Initialize the status bar item
   );
 
-  setupCommitInterval(
-    context,
-    context.globalState.get("commitInterval", DEFAULT_INTERVAL) * 60000
-  );
+  authenticate(context).then(() => {
+    setupCommitInterval(
+      context,
+      context.globalState.get("commitInterval", DEFAULT_INTERVAL) * 60000
+    );
+  });
 }
 
 async function deactivate() {
+  trackedDocuments.clear();
   if (commitInterval) clearInterval(commitInterval);
   try {
     const token = await extensionContext.secrets.get("githubAccessToken");

@@ -1,11 +1,11 @@
 {
   "name": "git-diary",
   "displayName": "Git Diary",
-  "description": "Automatically tracks code changes and commits them to a private GitHub diary repository",
+  "description": "Automatically track code changes and commit them to a private GitHub repository as a diary.",
   "version": "0.1.0",
   "publisher": "strangely-true",
   "engines": {
-    "vscode": "^1.97.0"
+    "vscode": "^1.70.0"
   },
   "categories": [
     "Other",
@@ -18,8 +18,23 @@
   "contributes": {
     "commands": [
       {
+        "command": "git-diary.showSettings",
+        "title": "Git Diary: Open Settings",
+        "category": "Git Diary"
+      },
+      {
         "command": "git-diary.changeInterval",
         "title": "Git Diary: Change Commit Interval",
+        "category": "Git Diary"
+      },
+      {
+        "command": "git-diary.forceCommit",
+        "title": "Git Diary: Force Commit Now",
+        "category": "Git Diary"
+      },
+      {
+        "command": "git-diary.manageIgnoredPaths",
+        "title": "Git Diary: Manage Ignored Paths",
         "category": "Git Diary"
       }
     ],
@@ -30,20 +45,31 @@
           "type": "number",
           "default": 30,
           "minimum": 1,
-          "description": "Automatic commit interval in minutes"
+          "description": "Automatic commit interval in minutes."
+        },
+        "git-diary.commitMessage": {
+          "type": "string",
+          "default": "Diary update: ${date}",
+          "description": "Template for commit messages. Use ${date} for timestamp."
+        },
+        "git-diary.ignoredPaths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["/node_modules/", "/dist/", "*.log"],
+          "description": "List of file patterns to ignore from tracking."
         }
       }
     }
   },
   "scripts": {
     "lint": "eslint .",
-    "pretest": "npm run lint",
     "test": "vscode-test",
-    "package": "vsce package"
+    "compile": "tsc",
+    "package": "vsce package",
+    "publish": "vsce publish"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.10",
-    "@types/node": "20.x",
+    "@types/node": "^20.0.0",
     "@types/vscode": "^1.97.0",
     "@vscode/test-cli": "^0.0.10",
     "@vscode/test-electron": "^2.4.1",
@@ -57,12 +83,17 @@
     "type": "git",
     "url": "https://github.com/strangely-true/git-diary"
   },
+  "bugs": {
+    "url": "https://github.com/strangely-true/git-diary/issues"
+  },
+  "homepage": "https://github.com/strangely-true/git-diary",
   "icon": "images/icon.png",
   "keywords": [
     "git",
     "diary",
     "productivity",
+    "automation",
     "time-tracking",
-    "automation"
+    "code-journaling"
   ]
 }
