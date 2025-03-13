@@ -1,8 +1,8 @@
 # Github Diary - Your Code Journal 🗓️
 
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/strangely-true.git-diary?color=blue&label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=strangely-true.git-diary)
-[![GitHub License](https://img.shields.io/github/license/strangely-true/git-diary)](https://github.com/strangely-true/git-diary/blob/master/LICENSE)
-[![Open Issues](https://img.shields.io/github/issues/strangely-true/git-diary)](https://github.com/strangely-true/git-diary/issues)
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/strangely-true.github-diary?color=blue&label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=strangely-true.github-diary)
+[![GitHub License](https://img.shields.io/github/license/strangely-true/github-diary)](https://github.com/strangely-true/github-diary/blob/master/LICENSE)
+[![Open Issues](https://img.shields.io/github/issues/strangely-true/github-diary)](https://github.com/strangely-true/github-diary/issues)
 
 ![Github Diary Banner](./images/banner.png)
 
@@ -13,7 +13,7 @@ Never lose track of your coding progress. Git Diary automatically records your d
 ### 📅 Automated Code Journaling
 - **Smart Change Tracking**: Records code snippets with line numbers
 - **Configurable Intervals**: Auto-commit every 30 mins (adjustable)
-- **Private GitHub Repo**: Secure storage in `git-diary-entries` repository
+- **Private GitHub Repo**: Secure storage in `github-diary-entries` repository
 - **File History**: Track file operations (create/rename/delete)
 
 ![Activity Tracking Demo](./images/demo.gif)
@@ -37,11 +37,11 @@ Never lose track of your coding progress. Git Diary automatically records your d
 
 **Or install manually:**
 ```bash
-git clone https://github.com/strangely-true/git-diary.git
-cd git-diary
+github clone https://github.com/strangely-true/github-diary.git
+cd github-diary
 npm install
 vsce package
-code --install-extension git-diary-0.1.0.vsix
+code --install-extension github-diary-0.1.0.vsix
 ```
 
 ## Setup Guide 🔧
@@ -51,7 +51,7 @@ code --install-extension git-diary-0.1.0.vsix
 3. Grant repo access through GitHub OAuth
 4. Private repository auto-created at:
    ```
-   github.com/<your-username>/git-diary-entries
+   github.com/<your-username>/github-diary-entries
    ```
 
 ### Configuration ⚙️
@@ -64,9 +64,9 @@ Access settings via:
 #### Key Settings:
 ```json
 {
-  "gitDiary.commitInterval": 30,
-  "gitDiary.commitMessage": "Diary update: ${date}",
-  "gitDiary.ignoredPaths": [
+  "githubDiary.commitInterval": 30,
+  "githubDiary.commitMessage": "Diary update: ${date}",
+  "githubDiary.ignoredPaths": [
     "/node_modules/",
     "/dist/",
     "*.log",
@@ -86,7 +86,7 @@ Git Diary: Manage Ignored Paths   # Edit exclusion patterns
 
 ### Repository Organization:
 ```bash
-📂 git-diary-entries
+📂 github-diary-entries
  └📂 2025
    └📂 01
      └📄 15.md  # Daily Markdown file
@@ -133,7 +133,7 @@ Git Diary: Manage Ignored Paths   # Edit exclusion patterns
 
 ### Development Setup:
 ```bash
-git clone https://github.com/strangely-true/git-diary.git
+git clone https://github.com/strangely-true/github-diary.git
 npm install
 npm run compile
 npm test
@@ -141,7 +141,7 @@ npm test
 
 ## License 📄
 
-MIT License - See [LICENSE](https://github.com/strangely-true/git-diary/blob/master/LICENSE) for full text
+MIT License - See [LICENSE](https://github.com/strangely-true/github-diary/blob/master/LICENSE) for full text
 
 ---
 
