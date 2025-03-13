@@ -78,7 +78,7 @@ async function updateDiaryEntry(token, username, content) {
   }
 
   const commitMessage = vscode.workspace
-    .getConfiguration("githubDiary")
+    .getConfiguration("github-diary")
     .get("commitMessage", `Diary update: ${dateString} ${timeString}`);
 
   const entrySeparator = existingContent ? "\n\n" : "";
@@ -99,7 +99,7 @@ async function updateDiaryEntry(token, username, content) {
  * Optimized Activity Tracking
  */
 function shouldIgnorePath(filePath) {
-  const config = vscode.workspace.getConfiguration("githubDiary");
+  const config = vscode.workspace.getConfiguration("github-diary");
   const ignoredPatterns = [
     ...ignoreFilepath, // Predefined patterns
     ...config.get("ignoredPaths", []), // User-configured patterns
@@ -307,7 +307,7 @@ function handleSettingsCommand(context) {
           break;
         
         case "⚙️ Open Full Settings":
-          await vscode.commands.executeCommand('workbench.action.openSettings', 'githubDiary');
+          await vscode.commands.executeCommand('workbench.action.openSettings', 'github-diary');
           break;
       }
     } catch (error) {
@@ -334,7 +334,7 @@ async function handleIntervalChange(context) {
 }
 
 async function handleMessageFormatChange() {
-  const config = vscode.workspace.getConfiguration("githubDiary");
+  const config = vscode.workspace.getConfiguration("github-diary");
   const current = config.get("commitMessage", `Diary update: \${date}`);
   
   const message = await vscode.window.showInputBox({
@@ -349,12 +349,12 @@ async function handleMessageFormatChange() {
 }
 
 async function handleIgnoredPaths() {
-  const config = vscode.workspace.getConfiguration("githubDiary");
+  const config = vscode.workspace.getConfiguration("github-diary");
   const current = config.get("ignoredPaths", []).join(', ');
   
   const paths = await vscode.window.showInputBox({
     prompt: "Comma-separated list of paths/patterns to ignore",
-    value: current
+    value: current  
   });
 
   if (paths) {

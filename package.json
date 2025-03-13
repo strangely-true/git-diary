@@ -28,8 +28,8 @@
         "category": "Github Diary"
       },
       {
-        "command": "github-diary.forceCommit",
-        "title": "Github Diary: Force Commit Now",
+        "command": "github-diary.changeCommitMessage",
+        "title": "Github Diary: Change Commit Message",
         "category": "Github Diary"
       },
       {
