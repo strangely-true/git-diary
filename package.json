@@ -2,7 +2,7 @@
   "name": "github-diary",
   "displayName": "Github Diary",
   "description": "Automatically track code changes and commit them to a private GitHub repository as a diary.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "strangely-true",
   "engines": {
     "vscode": "^1.97.0"
@@ -54,8 +54,14 @@
         },
         "github-diary.ignoredPaths": {
           "type": "array",
-          "items": { "type": "string" },
-          "default": ["/node_modules/", "/dist/", "*.log"],
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "/node_modules/",
+            "/dist/",
+            "*.log"
+          ],
           "description": "List of file patterns to ignore from tracking."
         }
       }
