@@ -399,7 +399,7 @@ function activate(context) {
     vscode.workspace.onDidOpenTextDocument((doc) => trackDocumentChanges(doc)),
     vscode.workspace.onDidCreateFiles((e) => tracker.trackFileOperations(e, "Created")),
     vscode.workspace.onDidDeleteFiles((e) => tracker.trackFileOperations(e, "Deleted")),
-    vscode.workspace.onDidRenameFiles((e) => tracker.trackFileRename(e)), // Proper binding
+    vscode.workspace.onDidRenameFiles((e) => tracker.trackFileRename(e)),
     createStatusBarItem(context) // Initialize the status bar item
   );
 
