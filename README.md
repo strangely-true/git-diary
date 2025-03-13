@@ -4,7 +4,7 @@
 [![GitHub License](https://img.shields.io/github/license/strangely-true/github-diary)](https://github.com/strangely-true/github-diary/blob/master/LICENSE)
 [![Open Issues](https://img.shields.io/github/issues/strangely-true/github-diary)](https://github.com/strangely-true/github-diary/issues)
 
-![Github Diary Banner](./images/banner.png)
+![Github Diary Banner](./images/icon.png)
 
 Never lose track of your coding progress. Git Diary automatically records your development activity in a private GitHub repository, creating a detailed, timestamped journal of your work.
 
@@ -16,7 +16,7 @@ Never lose track of your coding progress. Git Diary automatically records your d
 - **Private GitHub Repo**: Secure storage in `github-diary-entries` repository
 - **File History**: Track file operations (create/rename/delete)
 
-![Activity Tracking Demo](./images/demo.gif)
+<!-- ![Activity Tracking Demo](./images/demo.gif) -->
 
 ### ⚙️ Intelligent Configuration
 - **Custom Ignore Patterns**: Built-in + user-defined path exclusion
