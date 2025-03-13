@@ -6,7 +6,7 @@ const { debounce } = require("lodash");
 // Global variables
 let commitInterval = null;
 const DEFAULT_INTERVAL = 30; // minutes
-const REPO_NAME = "git-diary-entries";
+const REPO_NAME = "github-diary-entries";
 let intervalChangeLog = {};
 let extensionContext = null;
 
@@ -78,7 +78,7 @@ async function updateDiaryEntry(token, username, content) {
   }
 
   const commitMessage = vscode.workspace
-    .getConfiguration("gitDiary")
+    .getConfiguration("githubDiary")
     .get("commitMessage", `Diary update: ${dateString} ${timeString}`);
 
   const entrySeparator = existingContent ? "\n\n" : "";
@@ -99,7 +99,7 @@ async function updateDiaryEntry(token, username, content) {
  * Optimized Activity Tracking
  */
 function shouldIgnorePath(filePath) {
-  const config = vscode.workspace.getConfiguration("gitDiary");
+  const config = vscode.workspace.getConfiguration("githubDiary");
   const ignoredPatterns = [
     ...ignoreFilepath, // Predefined patterns
     ...config.get("ignoredPaths", []), // User-configured patterns
@@ -265,14 +265,14 @@ function createStatusBarItem(context) {
     100
   );
 
-  statusBarItem.text = "$(git-commit) Git Diary";
+  statusBarItem.text = "$(git-commit) Github Diary";
   statusBarItem.tooltip = "Click to configure diary settings";
-  statusBarItem.command = "git-diary.showSettings";
+  statusBarItem.command = "github-diary.showSettings";
   statusBarItem.show();
 
   // Register the command properly
   const settingsCommand = vscode.commands.registerCommand(
-    "git-diary.showSettings",
+    "github-diary.showSettings",
     handleSettingsCommand(context) // Directly pass the returned function
   );
 
@@ -307,7 +307,7 @@ function handleSettingsCommand(context) {
           break;
         
         case "⚙️ Open Full Settings":
-          await vscode.commands.executeCommand('workbench.action.openSettings', 'gitDiary');
+          await vscode.commands.executeCommand('workbench.action.openSettings', 'githubDiary');
           break;
       }
     } catch (error) {
@@ -334,7 +334,7 @@ async function handleIntervalChange(context) {
 }
 
 async function handleMessageFormatChange() {
-  const config = vscode.workspace.getConfiguration("gitDiary");
+  const config = vscode.workspace.getConfiguration("githubDiary");
   const current = config.get("commitMessage", `Diary update: \${date}`);
   
   const message = await vscode.window.showInputBox({
@@ -349,7 +349,7 @@ async function handleMessageFormatChange() {
 }
 
 async function handleIgnoredPaths() {
-  const config = vscode.workspace.getConfiguration("gitDiary");
+  const config = vscode.workspace.getConfiguration("githubDiary");
   const current = config.get("ignoredPaths", []).join(', ');
   
   const paths = await vscode.window.showInputBox({

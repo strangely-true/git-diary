@@ -1,6 +1,6 @@
 {
-  "name": "git-diary",
-  "displayName": "Git Diary",
+  "name": "github-diary",
+  "displayName": "Github Diary",
   "description": "Automatically track code changes and commit them to a private GitHub repository as a diary.",
   "version": "0.1.0",
   "publisher": "strangely-true",
@@ -18,41 +18,41 @@
   "contributes": {
     "commands": [
       {
-        "command": "git-diary.showSettings",
-        "title": "Git Diary: Open Settings",
-        "category": "Git Diary"
+        "command": "github-diary.showSettings",
+        "title": "Github Diary: Open Settings",
+        "category": "Github Diary"
       },
       {
-        "command": "git-diary.changeInterval",
-        "title": "Git Diary: Change Commit Interval",
-        "category": "Git Diary"
+        "command": "github-diary.changeInterval",
+        "title": "Github Diary: Change Commit Interval",
+        "category": "Github Diary"
       },
       {
-        "command": "git-diary.forceCommit",
-        "title": "Git Diary: Force Commit Now",
-        "category": "Git Diary"
+        "command": "github-diary.forceCommit",
+        "title": "Github Diary: Force Commit Now",
+        "category": "Github Diary"
       },
       {
-        "command": "git-diary.manageIgnoredPaths",
-        "title": "Git Diary: Manage Ignored Paths",
-        "category": "Git Diary"
+        "command": "github-diary.manageIgnoredPaths",
+        "title": "Github Diary: Manage Ignored Paths",
+        "category": "Github Diary"
       }
     ],
     "configuration": {
-      "title": "Git Diary",
+      "title": "Github Diary",
       "properties": {
-        "git-diary.commitInterval": {
+        "github-diary.commitInterval": {
           "type": "number",
           "default": 30,
           "minimum": 1,
           "description": "Automatic commit interval in minutes."
         },
-        "git-diary.commitMessage": {
+        "github-diary.commitMessage": {
           "type": "string",
           "default": "Diary update: ${date}",
           "description": "Template for commit messages. Use ${date} for timestamp."
         },
-        "git-diary.ignoredPaths": {
+        "github-diary.ignoredPaths": {
           "type": "array",
           "items": { "type": "string" },
           "default": ["/node_modules/", "/dist/", "*.log"],
@@ -81,15 +81,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/strangely-true/git-diary"
+    "url": "https://github.com/strangely-true/github-diary"
   },
   "bugs": {
-    "url": "https://github.com/strangely-true/git-diary/issues"
+    "url": "https://github.com/strangely-true/github-diary/issues"
   },
-  "homepage": "https://github.com/strangely-true/git-diary",
+  "homepage": "https://github.com/strangely-true/github-diary",
   "icon": "images/icon.png",
   "keywords": [
-    "git",
+    "github",
     "diary",
     "productivity",
     "automation",

@@ -1,10 +1,10 @@
-# Git Diary - Your Code Journal 🗓️
+# Github Diary - Your Code Journal 🗓️
 
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/strangely-true.git-diary?color=blue&label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=strangely-true.git-diary)
 [![GitHub License](https://img.shields.io/github/license/strangely-true/git-diary)](https://github.com/strangely-true/git-diary/blob/master/LICENSE)
 [![Open Issues](https://img.shields.io/github/issues/strangely-true/git-diary)](https://github.com/strangely-true/git-diary/issues)
 
-![Git Diary Banner](./images/banner.png)
+![Github Diary Banner](./images/banner.png)
 
 Never lose track of your coding progress. Git Diary automatically records your development activity in a private GitHub repository, creating a detailed, timestamped journal of your work.
 
@@ -129,7 +129,6 @@ Git Diary: Manage Ignored Paths   # Edit exclusion patterns
 - Update `ignoredPaths` in settings
 - Use regex patterns for complex exclusions
 
-[Full Troubleshooting Guide](#)
 
 
 ### Development Setup:
